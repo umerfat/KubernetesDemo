@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment # Deployment which is blueprint for Pod
+metadata:
+  name: mongo-deployment
+  labels:
+    app: mongo
+spec:
+  replicas: 1
+  # selector helps to know which pod belongs to which deployment, e.g here all pods with label app:mongo belong to this deployment
+  # you can choose any name for key/value pair for match lables
+  selector:
+    matchLabels:
+      app: mongo
+  # blueprint for pod is defined as template which is actually configuration of Pod within configuration of deployment
+  # Template has its own metadata nad spec just like deployment, template actually configures pod within deployment.
+  # Within spec of template/pod we have definition of containers
+  template:
+    metadata:
+    # in K8, we can give label to each component which is key/value pair, and act as additional identifiers.
+    # in pod/template incase of multiple replicas, each pod gets unique name however they share same lable which
+    # helps to identify all pod replicas of same application using specific label they share, label is required field for pods/template
+      labels:
+        app: mongo
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:5.0
+        ports:
+        - containerPort: 27017
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: mongo-user
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: mongo-password  
+---
+# Service section for mongo db app
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service
+spec:
+# Service needs to forward the request to it endpoint pod, service uses selector (e.g app:mongo) to know which 
+# Pod it should forward request to (here app:mongo label is given that of template/pod thus service will connect to that pod)
+  selector:
+    app: mongo
+  # service is accessible within cluster with its own port and ip address
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017 # port of target pod, tells service to which port to forward the request to pods
